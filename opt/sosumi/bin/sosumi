@@ -1,0 +1,67 @@
+#!/bin/bash
+# sosumi
+
+
+echo "*** Checking requirements"
+if [ ! -f "/bin/dmg2img" ]; then
+    echo"install dmg2img"
+fi
+if [ ! -f "/bin/qemu-system-x86_64" ]; then
+    echo"install qemu"
+fi
+
+
+
+echo "*** Checking for sosumi folder"
+if [ ! -f "/home/"$USER"/.local/sosumi" ]; then
+    mkdir "/home/"$USER"/.local/sosumi"
+fi
+
+echo "*** Checking for firmware files"
+if [ ! -f "/home/"$USER"/.local/sosumi"/firmware/OVMF_VARS-1024x768.fd ]; then
+	mkdir "/home/"$USER"/.local/sosumi"/firmware
+	cp -a "/opt/sosumi"/firmware/OVMF_VARS-1024x768.fd "/home/"$USER"/.local/sosumi"/firmware/
+	cp -a "/opt/sosumi"/ESP.qcow2 "/home/"$USER"/.local/sosumi"/
+fi
+
+echo "*** Checking for Base System files"
+if [ ! -f "/home/"$USER"/.local/sosumi"/BaseSystem/BaseSystem.img ]; then
+	if python3 "/opt/sosumi"/bin/fetch-macos.py -o "/home/"$USER"/.local/sosumi"/BaseSystem "$@"; then
+		dmg2img "/home/"$USER"/.local/sosumi"/BaseSystem/BaseSystem.dmg "/home/"$USER"/.local/sosumi"/BaseSystem/BaseSystem.img
+		rm "/home/"$USER"/.local/sosumi"/BaseSystem/BaseSystem.dmg
+	else
+		echo "Failed to download base system"
+		exit 1
+	fi
+fi	
+
+echo "*** Checking for disk image"
+if [ ! -f "/home/"$USER"/.local/sosumi"/macos.qcow2 ]; then
+	qemu-img create -f qcow2 "/home/"$USER"/.local/sosumi"/macos.qcow2 64G
+fi
+
+echo "*** Checking for launch script"
+if [ ! -f "$SNAP_USER_COMMON/launch" ]; then
+    cp -a "/opt/sosumi"/bin/launch "/home/"$USER"/.local/sosumi"/launch
+fi
+
+echo "*** Checking for install script"
+if [ ! -f "$SNAP_USER_COMMON/install" ]; then
+    cp -a "/opt/sosumi"/bin/install "/home/"$USER"/.local/sosumi"/install
+fi
+
+echo "*** Check if installer has been run"
+# Probably a better way to do this, but checking the size of the macos qcow is probably best.
+# If it's over an arbitrary size, we can guess the install finished
+# On my machine a basic qcow is 262192 bytes, but let's put a buffer of 2x that
+qcowfilesize=$(stat -c %s "/home/"$USER"/.local/sosumi"/macos.qcow2)
+if [ $qcowfilesize -gt 524384 ]; then
+  echo "*** Looks like the install was done, launching"
+  echo "*** Launch!"
+  exec "/home/"$USER"/.local/sosumi"/launch
+else
+  echo "*** Looks like the install hasn't been done yet, lets install"
+  echo "*** Install!"
+  exec "/home/"$USER"/.local/sosumi"/install
+fi
+

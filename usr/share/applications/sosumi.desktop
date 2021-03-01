@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=sosumi
+Exec=/opt/sosumi/bin/sosumi %U
+Terminal=false
+Type=Application
+Icon=/opt/sosumi/gui/sosumi.png
+StartupWMClass=susumi
+Comment=Download and install macOS in a VM
